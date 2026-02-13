@@ -1,0 +1,2882 @@
+---
+const basePath = import.meta.env.BASE_URL ?? "/";
+---
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Mock Exam Simulator with domain-balanced practice and analytics." />
+    <title>Mock Exam Simulator</title>
+    <link rel="icon" href={`${basePath}favicon.svg`} type="image/svg+xml" />
+    <style is:global>
+      :root {
+        --blue: #005a9c;
+        --bg: #f4f6f8;
+        --panel: #ffffff;
+        --border: #d6dbe0;
+        --text: #1f2a33;
+        --muted: #5b6770;
+        --accent: #0b76c4;
+        --chart-bg: #ffffff;
+        --input-bg: #ffffff;
+        --item-bg: #ffffff;
+        --item-hover-bg: #f5fbff;
+        --item-selected-bg: #b6d9f5;
+        --graph-axis: #5b6770;
+        --graph-grid: #eef2f5;
+        --graph-stroke: #7a8a99;
+        --graph-bg: #ffffff;
+        --nav-answered-bg: #dff0ff;
+        --nav-marked-bg: #fff3c9;
+        --status-warn-color: #b45309;
+        --status-warn-bg: #fff3c9;
+        --status-warn-border: #f0d57a;
+      }
+
+      html[data-theme="dark"] {
+        --blue: #4dabf7;
+        --bg: #0f172a;
+        --panel: #1e293b;
+        --border: #334155;
+        --text: #f1f5f9;
+        --muted: #94a3b8;
+        --accent: #38bdf8;
+        --chart-bg: #1e293b;
+        --input-bg: #1e293b;
+        --item-bg: #1e293b;
+        --item-hover-bg: #334155;
+        --item-selected-bg: #475569;
+        --graph-axis: #94a3b8;
+        --graph-grid: #1f2937;
+        --graph-stroke: #94a3b8;
+        --graph-bg: #0f172a;
+        --nav-answered-bg: #1e3a8a;
+        --nav-marked-bg: #422006;
+        --status-warn-color: #fbbf24;
+        --status-warn-bg: #422006;
+        --status-warn-border: #92400e;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+        color: var(--text);
+        background: var(--bg);
+      }
+
+      body.auth-pending .app {
+        visibility: hidden;
+      }
+
+      .app {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      header {
+        background: var(--panel);
+        border-bottom: 2px solid var(--border);
+        padding: 12px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      header .left,
+      header .right {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        flex-wrap: wrap;
+      }
+
+      .badge {
+        background: var(--blue);
+        color: #fff;
+        padding: 6px 10px;
+        border-radius: 4px;
+        font-weight: 600;
+        font-size: 14px;
+      }
+
+      .timer {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--blue);
+      }
+
+      .mark {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 600;
+        color: var(--blue);
+      }
+
+      .pause-status {
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--status-warn-color);
+        background: var(--status-warn-bg);
+        border: 1px solid var(--status-warn-border);
+        padding: 4px 8px;
+        border-radius: 4px;
+      }
+
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 8px 1fr;
+      gap: 8px;
+      padding: 20px;
+    }
+
+    .splitter {
+      background: var(--border);
+      border-radius: 6px;
+      cursor: col-resize;
+      position: relative;
+    }
+
+    .splitter::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 4px;
+      height: 40px;
+      background: var(--muted);
+      border-radius: 999px;
+      opacity: 0.6;
+    }
+
+    .splitter:active,
+    .splitter.dragging {
+      background: var(--accent);
+    }
+
+    .splitter {
+      background: var(--border);
+      border-radius: 6px;
+      cursor: col-resize;
+      position: relative;
+    }
+
+    .splitter::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 4px;
+      height: 40px;
+      background: var(--muted);
+      border-radius: 999px;
+      opacity: 0.6;
+    }
+
+    .splitter:active,
+    .splitter.dragging {
+      background: var(--accent);
+    }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 18px;
+        box-shadow: 0 1px 0 rgba(0, 0, 0, 0.02);
+      }
+
+      .question-text {
+        font-size: 18px;
+        line-height: 1.45;
+        margin: 0;
+      }
+
+      .meta {
+        margin-top: 12px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      .options {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .option {
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 10px 12px;
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        cursor: pointer;
+        background: var(--item-bg);
+      }
+
+      .option input {
+        margin-top: 3px;
+      }
+
+      .option:hover {
+        border-color: var(--accent);
+      }
+
+      .dragdrop-wrap {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+
+      .drag-column h4 {
+        margin: 0 0 8px 0;
+        font-size: 14px;
+        color: var(--muted);
+        font-weight: 600;
+      }
+
+      .drag-list,
+      .drop-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .drag-item,
+      .drop-slot {
+        border: 1px solid var(--border);
+        background: var(--item-bg);
+        padding: 10px 12px;
+        border-radius: 6px;
+        font-size: 14px;
+      }
+
+      .drag-item {
+        cursor: grab;
+      }
+
+      .drag-item.dragging {
+        opacity: 0.6;
+      }
+
+      .drop-slot {
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .drop-slot.over {
+        border-color: var(--accent);
+        background: var(--item-hover-bg);
+      }
+
+      .drop-target {
+        font-weight: 600;
+      }
+
+      .drop-value {
+        color: var(--blue);
+        font-weight: 600;
+      }
+
+      .drop-actions {
+        display: flex;
+        gap: 6px;
+        margin-top: 10px;
+      }
+
+      .drop-actions button {
+        font-size: 12px;
+        padding: 6px 10px;
+      }
+
+      .select-note {
+        font-size: 12px;
+        color: var(--muted);
+        margin-bottom: 8px;
+      }
+
+      .hotspot-wrap {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .hotspot-board {
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--item-bg);
+        padding: 10px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .hotspot-board svg {
+        width: 100%;
+        height: auto;
+        max-width: 520px;
+      }
+
+      .hotspot-region {
+        cursor: pointer;
+        fill: var(--bg);
+        stroke: var(--muted);
+        stroke-width: 1.5;
+        transition: fill 120ms ease;
+      }
+
+      .hotspot-region:hover {
+        fill: var(--item-hover-bg);
+      }
+
+      .hotspot-region.selected {
+        fill: var(--item-selected-bg);
+        stroke: var(--blue);
+        stroke-width: 2;
+      }
+
+      .hotspot-legend {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .fillin-wrap {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .fillin-input {
+        border: 1px solid var(--border);
+        background: var(--input-bg);
+        color: var(--text);
+        border-radius: 6px;
+        padding: 10px 12px;
+        font-size: 14px;
+        width: 100%;
+      }
+
+      .fillin-hint {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      footer {
+        background: var(--panel);
+        border-top: 2px solid var(--border);
+        padding: 16px 20px;
+        display: grid;
+        grid-template-columns: 1fr 2fr;
+        gap: 16px;
+        align-items: center;
+      }
+
+      .nav-buttons {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      button {
+        border: 1px solid var(--border);
+        background: var(--item-bg);
+        color: var(--text);
+        padding: 8px 14px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 600;
+      }
+
+      button.primary {
+        background: var(--blue);
+        color: #fff;
+        border-color: var(--blue);
+      }
+
+      button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      .navigator {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(32px, 1fr));
+        gap: 6px;
+      }
+
+      .nav-item {
+        border: 1px solid var(--border);
+        background: var(--item-bg);
+        color: var(--text);
+        border-radius: 4px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        cursor: pointer;
+      }
+
+      .nav-item.answered {
+        background: var(--nav-answered-bg);
+        border-color: var(--blue);
+      }
+
+      .nav-item.marked {
+        background: var(--nav-marked-bg);
+        border-color: var(--status-warn-border);
+      }
+
+      .nav-item.current {
+        outline: 2px solid var(--blue);
+        font-weight: 700;
+      }
+
+      .result {
+        padding: 24px;
+        display: none;
+      }
+
+      .result h2 {
+        margin-top: 0;
+      }
+
+      .domain-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+        margin-top: 16px;
+      }
+
+      .domain-card {
+        border: 1px solid var(--border);
+        background: var(--panel);
+        padding: 12px;
+        border-radius: 6px;
+      }
+
+      .score-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 8px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 700;
+        margin-left: 8px;
+      }
+
+      .score-nt {
+        background: #ffe7e7;
+        color: #8f1d1d;
+        border: 1px solid #f0bcbc;
+      }
+
+      .score-bt {
+        background: #fff3c9;
+        color: #7a5200;
+        border: 1px solid #f0d57a;
+      }
+
+      .score-t {
+        background: #dff0ff;
+        color: #0b5a90;
+        border: 1px solid #b8d9f2;
+      }
+
+      .score-at {
+        background: #e4f6e7;
+        color: #1c6b2f;
+        border: 1px solid #bfe5c6;
+      }
+
+      html[data-theme="dark"] .score-nt {
+        background: #451a1a;
+        color: #fca5a5;
+        border-color: #991b1b;
+      }
+
+      html[data-theme="dark"] .score-bt {
+        background: #422006;
+        color: #fcd34d;
+        border-color: #92400e;
+      }
+
+      html[data-theme="dark"] .score-t {
+        background: #1e3a8a;
+        color: #93c5fd;
+        border-color: #1d4ed8;
+      }
+
+      html[data-theme="dark"] .score-at {
+        background: #064e3b;
+        color: #6ee7b7;
+        border-color: #065f46;
+      }
+
+      .domain-card .label {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .review {
+        margin-top: 16px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      .bank-summary {
+        margin-top: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .bank-summary .summary-row {
+        display: grid;
+        grid-template-columns: 80px 1fr 60px;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+      }
+
+      .bank-summary .bar-track {
+        height: 10px;
+        background: var(--item-bg);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        overflow: hidden;
+      }
+
+      .bank-summary .bar-fill {
+        height: 100%;
+        background: var(--blue);
+        border-radius: 999px;
+      }
+
+      .bank-summary .bar-fill.people {
+        background: #1d4ed8;
+      }
+
+      .bank-summary .bar-fill.process {
+        background: #0f766e;
+      }
+
+      .bank-summary .bar-fill.business {
+        background: #a16207;
+      }
+
+      .bank-summary .percent {
+        font-weight: 700;
+        color: var(--text);
+      }
+
+      .bank-summary .meta-line {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .review-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-top: 16px;
+      }
+
+      .review-item {
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--panel);
+        padding: 12px;
+      }
+
+      .review-item .label {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .review-item .answer {
+        font-weight: 600;
+      }
+
+      .review-item.correct {
+        border-color: var(--blue);
+        background: var(--nav-answered-bg);
+      }
+
+      .review-item.incorrect {
+        border-color: #f0c3c3;
+        background: #fffafa;
+      }
+
+      [data-theme="dark"] .review-item.incorrect {
+        background: #451a1a;
+        border-color: #991b1b;
+      }
+
+      .review-filter {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 12px;
+      }
+
+      .analytics {
+        margin-top: 16px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 12px;
+      }
+
+      .analytics-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 8px;
+      }
+
+      .filter-bar {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        align-items: center;
+        margin-top: 12px;
+      }
+
+      .filter-bar label {
+        font-size: 12px;
+        color: var(--muted);
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+    .filter-bar input {
+      border: 1px solid var(--border);
+      background: var(--input-bg);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 6px 8px;
+      font-size: 13px;
+    }
+
+    .collapsible-toggle {
+      border: 1px solid var(--border);
+      background: var(--item-bg);
+      color: var(--text);
+      padding: 6px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 12px;
+      margin-top: 8px;
+    }
+
+    .collapsible-content.collapsed {
+      display: none;
+    }
+
+      .trend-chart {
+        margin-top: 8px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: #fff;
+        padding: 8px;
+      }
+
+      .trend-chart svg {
+        width: 100%;
+        height: 120px;
+        display: block;
+      }
+
+    @media (max-width: 900px) {
+      header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+      }
+
+      header .left,
+      header .right {
+        width: 100%;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      header .right {
+        flex-wrap: nowrap;
+      }
+
+      main {
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+
+      footer {
+        grid-template-columns: 1fr;
+      }
+
+      .dragdrop-wrap {
+        grid-template-columns: 1fr;
+      }
+
+      .splitter {
+        cursor: row-resize;
+        height: 8px;
+      }
+
+      .splitter::after {
+        width: 40px;
+        height: 4px;
+      }
+
+      #examView {
+        grid-template-columns: 1fr !important;
+        grid-template-rows: 1fr 8px 1fr;
+      }
+
+      .option {
+        padding: 8px 10px;
+        gap: 8px;
+        font-size: 14px;
+      }
+
+      .option input {
+        transform: scale(1.15);
+      }
+
+      .question-text {
+        font-size: 16px;
+        line-height: 1.35;
+      }
+
+      .panel {
+        padding: 14px;
+      }
+
+      footer {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 999;
+        background: var(--panel);
+        border-top: 2px solid var(--border);
+      }
+
+      footer .nav-buttons {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .mobile-row {
+        display: flex;
+        gap: 10px;
+        width: 100%;
+        padding: 0 12px;
+        box-sizing: border-box;
+      }
+
+      .mobile-row.primary-row > button {
+        flex: 1;
+      }
+
+      .mobile-row.secondary-row {
+        justify-content: center;
+      }
+
+      .app {
+        padding-bottom: 86px;
+      }
+
+      #navigatorWrap {
+        position: fixed;
+        top: 0;
+        right: 0;
+        height: 100vh;
+        width: 70vw;
+        max-width: 320px;
+        background: var(--panel);
+        border-left: 1px solid var(--border);
+        transform: translateX(100%);
+        transition: transform 160ms ease;
+        z-index: 1001;
+        padding: 16px;
+        overflow: auto;
+      }
+
+      body.nav-open #navigatorWrap {
+        transform: translateX(0);
+      }
+
+      #navOverlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.35);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 160ms ease;
+        z-index: 1000;
+      }
+
+      body.nav-open #navOverlay {
+        opacity: 1;
+        pointer-events: auto;
+      }
+    }
+    </style>
+  </head>
+
+  <body>
+    <div class="app">
+      <header>
+        <div class="left">
+          <div class="badge" id="questionProgress">Question 1 of 180</div>
+          <div class="timer" id="timer">230:00</div>
+        </div>
+        <div class="right">
+          <span class="pause-status" id="pauseStatus" style="display: none;">Paused</span>
+          <label class="mark">
+            <input type="checkbox" id="markForReview" />
+            Mark for Review
+          </label>
+          <div id="themeContainer" style="display: flex; align-items: center; gap: 8px; margin-left: 8px;">
+            <label for="themeSelector" style="font-size: 13px; font-weight: 600; color: var(--blue);">Theme:</label>
+            <select
+              id="themeSelector"
+              style="font-size: 13px; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); background: var(--panel); color: var(--text);"
+            >
+              <option value="system">System</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
+          </div>
+          <button id="pauseBtn">Pause</button>
+        </div>
+      </header>
+
+      <section class="panel" id="landingView">
+        <h2>Mock Exam Simulator</h2>
+        <p class="meta">Domain-balanced practice experience with realistic exam flow.</p>
+        <div class="domain-grid">
+          <div class="domain-card">
+            <div class="label">People Ratio (%)</div>
+            <input type="number" id="ratioPeople" class="fillin-input" value="42" min="0" max="100" />
+          </div>
+          <div class="domain-card">
+            <div class="label">Process Ratio (%)</div>
+            <input type="number" id="ratioProcess" class="fillin-input" value="50" min="0" max="100" />
+          </div>
+          <div class="domain-card">
+            <div class="label">Business Ratio (%)</div>
+            <input type="number" id="ratioBusiness" class="fillin-input" value="8" min="0" max="100" />
+          </div>
+        </div>
+        <div class="review" id="ratioHint">Default ratios: People 42%, Process 50%, Business 8%.</div>
+        <div class="domain-card" id="summaryCard" style="margin-top: 16px;">
+          <div class="label">Question Bank Summary</div>
+          <div class="review" id="bankSummary">Locked. Click “Load Summary” to view counts.</div>
+        </div>
+        <div class="review" id="resumeStatus" style="margin-top: 10px;"></div>
+        <div class="nav-buttons" style="margin-top: 16px;">
+        <button id="startExamBtn" class="primary">Start Exam</button>
+        <button id="resumeExamBtn">Resume Exam</button>
+        <button id="viewHistoryBtn">View Past Results</button>
+        <button id="loadSummaryBtn">Load Summary</button>
+        <button id="resetLayoutBtn">Reset Layout</button>
+        <button id="factoryResetBtn">Factory Reset</button>
+      </div>
+    </section>
+
+    <main id="examView">
+      <section class="panel">
+        <p class="question-text" id="questionText"></p>
+        <button class="collapsible-toggle" data-target="questionMetaWrap">Details</button>
+        <div class="meta collapsible-content" id="questionMetaWrap">
+          <div id="questionMeta"></div>
+        </div>
+      </section>
+      <div class="splitter" id="splitter" role="separator" aria-orientation="vertical" aria-label="Resize panels"></div>
+      <section class="panel">
+        <div class="options" id="options"></div>
+      </section>
+    </main>
+
+      <section class="panel result" id="resultView">
+        <h2>Exam Results</h2>
+        <p id="scoreSummary"></p>
+        <div class="domain-grid" id="domainGrid"></div>
+      <div class="review" id="reviewSummary"></div>
+      <label class="review-filter">
+        <input type="checkbox" id="reviewUnansweredOnly" />
+        Show unanswered questions only
+      </label>
+      <label class="review-filter">
+        <input type="checkbox" id="reviewMarkedOnly" />
+        Show marked questions only
+      </label>
+        <div class="review-list" id="reviewList"></div>
+        <div class="nav-buttons" style="margin-top: 16px;">
+          <button id="backToLandingBtn">Back to Landing</button>
+          <button id="openHistoryBtn">View Past Results</button>
+        </div>
+      </section>
+
+    <section class="panel result" id="historyView">
+      <h2>Past Results</h2>
+      <p class="meta">All attempts are stored locally in your browser.</p>
+      <button class="collapsible-toggle" data-target="historyFilterWrap">Filters</button>
+      <div class="filter-bar collapsible-content" id="historyFilterWrap">
+        <label>
+          From
+          <input type="date" id="historyFrom" />
+        </label>
+          <label>
+            To
+            <input type="date" id="historyTo" />
+          </label>
+          <button id="applyHistoryFilter">Apply Filter</button>
+        <button id="clearHistoryFilter">Clear</button>
+        <button id="clearHistoryData">Clear Results</button>
+      </div>
+      <button class="collapsible-toggle" data-target="historyAnalyticsWrap">Analytics</button>
+      <div class="analytics collapsible-content" id="historyAnalyticsWrap">
+        <div class="domain-card" id="domainAnalytics"></div>
+        <div class="domain-card" id="questionAnalytics"></div>
+        <div class="domain-card" id="trendAnalytics"></div>
+      </div>
+      <div id="historyList"></div>
+      <div class="nav-buttons" style="margin-top: 16px;">
+        <button id="backFromHistoryBtn">Back to Landing</button>
+      </div>
+    </section>
+
+    <footer>
+      <div class="nav-buttons">
+        <div class="mobile-row primary-row">
+          <button id="prevBtn">Previous</button>
+          <button id="nextBtn" class="primary">Next</button>
+        </div>
+        <div class="mobile-row secondary-row">
+          <button id="endReviewBtn">End Review</button>
+          <button id="openNavigatorBtn">Questions</button>
+        </div>
+      </div>
+      <div id="navigatorWrap">
+        <div class="meta" style="margin-bottom: 8px;">Questions</div>
+        <div class="navigator" id="navigator"></div>
+      </div>
+  </footer>
+  <div id="navOverlay" aria-hidden="true"></div>
+    </div>
+
+    <script is:inline define:vars={{ basePath }}>
+      document.body.classList.add("auth-pending");
+
+      const AUTH_KEYS = {
+        admin: "M271-1983-AX1Z",
+        user: "N271-1983-AX2Z"
+      };
+      const AUTH_ROLE_KEY = "mock_exam_role";
+
+      const THEME_KEY = "pmp_theme_pref";
+      const LAYOUT_KEY = "pmp_layout_split";
+      const LAYOUT_KEY_MOBILE = "pmp_layout_split_mobile";
+      const STORAGE_KEYS = [
+        "pmp_results",
+        "pmp_question_stats",
+        "pmp_exam_state",
+        THEME_KEY,
+        LAYOUT_KEY
+      ];
+
+      function applyTheme(theme) {
+        let activeTheme = theme;
+        if (theme === "system") {
+          activeTheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        }
+        document.documentElement.setAttribute("data-theme", activeTheme);
+        const selector = document.getElementById("themeSelector");
+        if (selector) {
+          selector.value = theme;
+        }
+      }
+
+      function initTheme() {
+        const savedTheme = localStorage.getItem(THEME_KEY) || "system";
+        applyTheme(savedTheme);
+
+        const selector = document.getElementById("themeSelector");
+        if (selector) {
+          selector.addEventListener("change", (e) => {
+            const newTheme = e.target.value;
+            localStorage.setItem(THEME_KEY, newTheme);
+            applyTheme(newTheme);
+          });
+        }
+
+        window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+          if (localStorage.getItem(THEME_KEY) === "system" || !localStorage.getItem(THEME_KEY)) {
+            applyTheme("system");
+          }
+        });
+      }
+
+      initTheme();
+
+      function clamp(value, min, max) {
+        return Math.min(Math.max(value, min), max);
+      }
+
+      function applySplitLayout(ratio) {
+        const exam = document.getElementById("examView");
+        if (!exam) return;
+        const isMobile = window.matchMedia("(max-width: 900px)").matches;
+        const safe = clamp(ratio, 0.2, 0.8);
+        if (isMobile) {
+          exam.style.gridTemplateColumns = "1fr";
+          exam.style.gridTemplateRows = `${safe}fr 8px ${1 - safe}fr`;
+          localStorage.setItem(LAYOUT_KEY_MOBILE, String(safe));
+        } else {
+          exam.style.gridTemplateColumns = `${safe}fr 8px ${1 - safe}fr`;
+          localStorage.setItem(LAYOUT_KEY, String(safe));
+        }
+      }
+
+      function initSplitLayout() {
+        const isMobile = window.matchMedia("(max-width: 900px)").matches;
+        const saved = Number(localStorage.getItem(isMobile ? LAYOUT_KEY_MOBILE : LAYOUT_KEY));
+        if (Number.isFinite(saved) && saved > 0) {
+          applySplitLayout(saved);
+        } else {
+          applySplitLayout(isMobile ? 0.3 : 0.5);
+        }
+
+        const splitter = document.getElementById("splitter");
+        const exam = document.getElementById("examView");
+        if (!splitter || !exam) return;
+
+        let dragging = false;
+
+        function onPointerMove(e) {
+          if (!dragging) return;
+          const rect = exam.getBoundingClientRect();
+          const mobile = window.matchMedia("(max-width: 900px)").matches;
+          if (mobile) {
+            const y = e.clientY - rect.top;
+            const ratio = rect.height ? y / rect.height : 0.5;
+            applySplitLayout(ratio);
+          } else {
+            const x = e.clientX - rect.left;
+            const ratio = rect.width ? x / rect.width : 0.5;
+            applySplitLayout(ratio);
+          }
+        }
+
+        function onPointerUp() {
+          dragging = false;
+          splitter.classList.remove("dragging");
+          document.body.style.cursor = "";
+          window.removeEventListener("pointermove", onPointerMove);
+          window.removeEventListener("pointerup", onPointerUp);
+        }
+
+        splitter.addEventListener("pointerdown", (e) => {
+          dragging = true;
+          splitter.classList.add("dragging");
+          document.body.style.cursor = "col-resize";
+          window.addEventListener("pointermove", onPointerMove);
+          window.addEventListener("pointerup", onPointerUp);
+          e.preventDefault();
+        });
+      }
+
+      function resetSplitLayout() {
+        localStorage.removeItem(LAYOUT_KEY);
+        localStorage.removeItem(LAYOUT_KEY_MOBILE);
+        applySplitLayout(0.5);
+      }
+
+      function initCollapsibles() {
+        const isMobile = window.matchMedia("(max-width: 900px)").matches;
+        document.querySelectorAll(".collapsible-toggle").forEach((btn) => {
+          const targetId = btn.getAttribute("data-target");
+          if (!targetId) return;
+          const target = document.getElementById(targetId);
+          if (!target) return;
+          if (isMobile) {
+            target.classList.add("collapsed");
+          }
+          btn.addEventListener("click", () => {
+            target.classList.toggle("collapsed");
+          });
+        });
+      }
+
+      async function factoryReset() {
+        if (!confirm("This will clear all saved progress, results, and settings. Continue?")) {
+          return;
+        }
+        STORAGE_KEYS.forEach((key) => localStorage.removeItem(key));
+        sessionStorage.removeItem(AUTH_ROLE_KEY);
+        try {
+          const db = await openDatabase();
+          const stores = ["results", "stats", "examState"];
+          await Promise.all(
+            stores.map(
+              (storeName) =>
+                new Promise((resolve) => {
+                  const tx = db.transaction(storeName, "readwrite");
+                  const store = tx.objectStore(storeName);
+                  const req = store.clear();
+                  req.onsuccess = () => resolve();
+                  req.onerror = () => resolve();
+                })
+            )
+          );
+        } catch (err) {
+          console.error("Factory reset failed", err);
+        }
+        location.reload();
+      }
+
+      function requirePasscode() {
+        const existingRole = sessionStorage.getItem(AUTH_ROLE_KEY);
+        if (existingRole) {
+          return existingRole;
+        }
+        const input = window.prompt("Enter access code:");
+        if (!input) {
+          alert("Access code required.");
+          return requirePasscode();
+        }
+        if (input === AUTH_KEYS.admin) {
+          sessionStorage.setItem(AUTH_ROLE_KEY, "admin");
+          return "admin";
+        }
+        if (input === AUTH_KEYS.user) {
+          sessionStorage.setItem(AUTH_ROLE_KEY, "user");
+          return "user";
+        }
+        alert("Invalid code.");
+        return requirePasscode();
+      }
+
+      function applyRoleUI(role) {
+        const summaryCard = document.getElementById("summaryCard");
+        const loadSummaryBtn = document.getElementById("loadSummaryBtn");
+        if (role === "user") {
+          if (summaryCard) summaryCard.style.display = "none";
+          if (loadSummaryBtn) loadSummaryBtn.style.display = "none";
+        } else {
+          if (summaryCard) summaryCard.style.display = "";
+          if (loadSummaryBtn) loadSummaryBtn.style.display = "";
+        }
+      }
+
+      let questionBankPeople = [];
+      let questionBankProcess = [];
+      let questionBankBusiness = [];
+
+      const EXAM_LENGTH = 180;
+      const EXAM_MINUTES = 230;
+      const domainWeights = {
+        People: 0.42,
+        Process: 0.5,
+        Business: 0.08
+      };
+      const DEFAULT_RATIOS = {
+        People: 42,
+        Process: 50,
+        Business: 8
+      };
+      const DB_NAME = "pmp_simulator";
+      const DB_VERSION = 1;
+
+      let examQuestions = [];
+      let examLength = EXAM_LENGTH;
+      let currentIndex = 0;
+      let answers = new Map();
+      let marked = new Set();
+      let remainingSeconds = EXAM_MINUTES * 60;
+      let timerId = null;
+      let currentRatios = { ...DEFAULT_RATIOS };
+      let questionsLoaded = false;
+      let isPaused = false;
+      let lastAutoSave = 0;
+      let questionTimes = new Map();
+      let lastQuestionStart = null;
+      let dbPromise = null;
+
+      function shuffle(array) {
+        const copy = array.slice();
+        for (let i = copy.length - 1; i > 0; i -= 1) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [copy[i], copy[j]] = [copy[j], copy[i]];
+        }
+        return copy;
+      }
+
+      async function loadQuestionBanks() {
+        if (questionsLoaded) {
+          return true;
+        }
+        try {
+          const [peopleRes, processRes, businessRes] = await Promise.all([
+            fetch(`${basePath}data/questions_people.json`, { cache: "no-store" }),
+            fetch(`${basePath}data/questions_process.json`, { cache: "no-store" }),
+            fetch(`${basePath}data/questions_business.json`, { cache: "no-store" })
+          ]);
+          if (!peopleRes.ok || !processRes.ok || !businessRes.ok) {
+            throw new Error("Failed to load question bank files.");
+          }
+          const [people, process, business] = await Promise.all([
+            peopleRes.json(),
+            processRes.json(),
+            businessRes.json()
+          ]);
+          if (!Array.isArray(people) || !Array.isArray(process) || !Array.isArray(business)) {
+            throw new Error("Question bank data invalid.");
+          }
+          questionBankPeople = people;
+          questionBankProcess = process;
+          questionBankBusiness = business;
+          questionsLoaded = true;
+          return true;
+        } catch (err) {
+          console.error("Failed to load question banks", err);
+          alert("Question bank files not loaded. Ensure public/data/questions_*.json exist and reload.");
+          return false;
+        }
+      }
+
+      function countQuestionTypes(items) {
+        const counts = { single: 0, multiselect: 0, dragdrop: 0, hotspot: 0, fillin: 0 };
+        items.forEach((item) => {
+          const type = item.type || "single";
+          if (counts[type] === undefined) {
+            counts[type] = 0;
+          }
+          counts[type] += 1;
+        });
+        return counts;
+      }
+
+      function formatTypeCounts(counts) {
+        return `Single ${counts.single}, Multi ${counts.multiselect}, Drag ${counts.dragdrop}, Hotspot ${counts.hotspot}, Fill ${counts.fillin}`;
+      }
+
+      function renderBankSummary() {
+        const summary = document.getElementById("bankSummary");
+        const people = questionBankPeople.length;
+        const process = questionBankProcess.length;
+        const business = questionBankBusiness.length;
+        const total = people + process + business;
+
+        const peopleTypes = countQuestionTypes(questionBankPeople);
+        const processTypes = countQuestionTypes(questionBankProcess);
+        const businessTypes = countQuestionTypes(questionBankBusiness);
+        const totalTypes = countQuestionTypes([
+          ...questionBankPeople,
+          ...questionBankProcess,
+          ...questionBankBusiness
+        ]);
+
+        const maxValue = Math.max(people, process, business, 1);
+        const rows = [
+          { label: "People", value: people, types: peopleTypes, key: "people" },
+          { label: "Process", value: process, types: processTypes, key: "process" },
+          { label: "Business", value: business, types: businessTypes, key: "business" }
+        ];
+
+        const bars = rows
+          .map(
+            (row) => `
+            <div class="summary-row">
+              <div class="label">${row.label}</div>
+              <div class="bar-track">
+                <div class="bar-fill ${row.key}" style="width: ${Math.round((row.value / maxValue) * 100)}%"></div>
+              </div>
+              <div class="label"><span class="percent">${total ? Math.round((row.value / total) * 100) : 0}%</span> (${row.value})</div>
+            </div>
+            <div class="meta-line">${formatTypeCounts(row.types)}</div>
+          `
+          )
+          .join("");
+
+        summary.innerHTML = `
+          <div class="label">Total Questions: ${total}</div>
+          <div class="bank-summary">
+            ${bars}
+            <div class="meta-line">All Types: ${formatTypeCounts(totalTypes)}</div>
+          </div>
+        `;
+      }
+
+      function openDatabase() {
+        if (dbPromise) return dbPromise;
+        dbPromise = new Promise((resolve, reject) => {
+          const request = indexedDB.open(DB_NAME, DB_VERSION);
+          request.onupgradeneeded = () => {
+            const db = request.result;
+            if (!db.objectStoreNames.contains("results")) {
+              db.createObjectStore("results", { keyPath: "id" });
+            }
+            if (!db.objectStoreNames.contains("stats")) {
+              db.createObjectStore("stats", { keyPath: "id" });
+            }
+            if (!db.objectStoreNames.contains("examState")) {
+              db.createObjectStore("examState", { keyPath: "id" });
+            }
+          };
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+        });
+        return dbPromise;
+      }
+
+      async function getStore(storeName, mode = "readonly") {
+        const db = await openDatabase();
+        const tx = db.transaction(storeName, mode);
+        return tx.objectStore(storeName);
+      }
+
+    async function getQuestionStats() {
+      const store = await getStore("stats");
+      return new Promise((resolve) => {
+        const req = store.get("questionStats");
+        req.onsuccess = () => resolve(req.result ? req.result.data : {});
+        req.onerror = () => resolve({});
+      });
+    }
+
+    async function saveQuestionStats(stats) {
+      const store = await getStore("stats", "readwrite");
+      return new Promise((resolve) => {
+        const req = store.put({ id: "questionStats", data: stats });
+        req.onsuccess = () => resolve();
+        req.onerror = () => resolve();
+      });
+    }
+
+    async function getUsedPool() {
+      const store = await getStore("stats");
+      return new Promise((resolve) => {
+        const req = store.get("usedPool");
+        req.onsuccess = () =>
+          resolve(
+            req.result?.data || {
+              People: [],
+              Process: [],
+              Business: []
+            }
+          );
+        req.onerror = () =>
+          resolve({
+            People: [],
+            Process: [],
+            Business: []
+          });
+      });
+    }
+
+    async function saveUsedPool(pool) {
+      const store = await getStore("stats", "readwrite");
+      return new Promise((resolve) => {
+        const req = store.put({ id: "usedPool", data: pool });
+        req.onsuccess = () => resolve();
+        req.onerror = () => resolve();
+      });
+    }
+
+      async function loadResults() {
+        const store = await getStore("results");
+        return new Promise((resolve) => {
+          const req = store.getAll();
+          req.onsuccess = () => resolve(req.result || []);
+          req.onerror = () => resolve([]);
+        });
+      }
+
+      async function saveResult(result) {
+        const store = await getStore("results", "readwrite");
+        return new Promise((resolve) => {
+          const req = store.put(result);
+          req.onsuccess = () => resolve();
+          req.onerror = () => resolve();
+        });
+      }
+
+      async function clearResults() {
+        const store = await getStore("results", "readwrite");
+        return new Promise((resolve) => {
+          const req = store.clear();
+          req.onsuccess = () => resolve();
+          req.onerror = () => resolve();
+        });
+      }
+
+      async function saveExamState() {
+        if (!examQuestions.length) return;
+        const payload = {
+          id: "currentExam",
+          version: 1,
+          examQuestions,
+          examLength,
+          currentIndex,
+          answers: Array.from(answers.entries()),
+          marked: Array.from(marked.values()),
+          questionTimes: Array.from(questionTimes.entries()),
+          remainingSeconds,
+          currentRatios,
+          isPaused,
+          savedAt: new Date().toISOString()
+        };
+        const store = await getStore("examState", "readwrite");
+        return new Promise((resolve) => {
+          const req = store.put(payload);
+          req.onsuccess = () => resolve();
+          req.onerror = () => resolve();
+        });
+      }
+
+      async function loadExamState() {
+        const store = await getStore("examState");
+        return new Promise((resolve) => {
+          const req = store.get("currentExam");
+          req.onsuccess = () => resolve(req.result || null);
+          req.onerror = () => resolve(null);
+        });
+      }
+
+      async function clearExamState() {
+        const store = await getStore("examState", "readwrite");
+        return new Promise((resolve) => {
+          const req = store.clear();
+          req.onsuccess = () => resolve();
+          req.onerror = () => resolve();
+        });
+      }
+
+      function normalizeRatios(inputRatios) {
+        const total = Object.values(inputRatios).reduce((sum, value) => sum + value, 0);
+        if (total <= 0) {
+          return { ...DEFAULT_RATIOS, total: 100 };
+        }
+        return { ...inputRatios, total };
+      }
+
+      function calculateDomainCounts(ratios) {
+        const weights = {
+          People: ratios.People / ratios.total,
+          Process: ratios.Process / ratios.total,
+          Business: ratios.Business / ratios.total
+        };
+        const rawCounts = {
+          People: weights.People * EXAM_LENGTH,
+          Process: weights.Process * EXAM_LENGTH,
+          Business: weights.Business * EXAM_LENGTH
+        };
+        const counts = {
+          People: Math.floor(rawCounts.People),
+          Process: Math.floor(rawCounts.Process),
+          Business: Math.floor(rawCounts.Business)
+        };
+        let remainder = EXAM_LENGTH - (counts.People + counts.Process + counts.Business);
+        const order = Object.entries(rawCounts)
+          .map(([domain, value]) => ({ domain, frac: value - Math.floor(value) }))
+          .sort((a, b) => b.frac - a.frac);
+        let idx = 0;
+        while (remainder > 0) {
+          counts[order[idx % order.length].domain] += 1;
+          remainder -= 1;
+          idx += 1;
+        }
+        return counts;
+      }
+
+    function selectQuestions(pool, count, stats, usedIds) {
+      if (!pool.length || count <= 0) return [];
+      const eligible = usedIds?.size
+        ? pool.filter((question) => !usedIds.has(question.id))
+        : pool.slice();
+      const source = eligible.length >= count ? eligible : pool;
+      const ranked = source
+        .map((question) => ({ question, count: stats[question.id] || 0 }))
+        .sort((a, b) => {
+          if (a.count !== b.count) return a.count - b.count;
+          return Math.random() - 0.5;
+        })
+        .map((item) => item.question);
+
+      if (count <= ranked.length) {
+        return ranked.slice(0, count);
+      }
+
+        const selected = ranked.slice();
+        while (selected.length < count) {
+          selected.push(ranked[Math.floor(Math.random() * ranked.length)]);
+        }
+        return selected;
+      }
+
+      function getRatiosFromInputs() {
+        const people = Number(document.getElementById("ratioPeople").value) || 0;
+        const process = Number(document.getElementById("ratioProcess").value) || 0;
+        const business = Number(document.getElementById("ratioBusiness").value) || 0;
+        const normalized = normalizeRatios({ People: people, Process: process, Business: business });
+        const hint = document.getElementById("ratioHint");
+        if (normalized.total !== 100) {
+          hint.textContent = `Using normalized ratios from your input (sum ${normalized.total}%).`;
+        } else if (
+          normalized.People === DEFAULT_RATIOS.People &&
+          normalized.Process === DEFAULT_RATIOS.Process &&
+          normalized.Business === DEFAULT_RATIOS.Business
+        ) {
+          hint.textContent = "Default ratios: People 42%, Process 50%, Business 8%.";
+        } else {
+          hint.textContent = "Custom ratios applied.";
+        }
+        return normalized;
+      }
+
+    async function buildExam() {
+      const counts = calculateDomainCounts(currentRatios);
+      const stats = await getQuestionStats();
+      const usedPool = await getUsedPool();
+
+      const usedPeople = new Set(usedPool.People || []);
+      const usedProcess = new Set(usedPool.Process || []);
+      const usedBusiness = new Set(usedPool.Business || []);
+
+      const availablePeople = questionBankPeople.filter((q) => !usedPeople.has(q.id));
+      const availableProcess = questionBankProcess.filter((q) => !usedProcess.has(q.id));
+      const availableBusiness = questionBankBusiness.filter((q) => !usedBusiness.has(q.id));
+
+      if (availablePeople.length < counts.People) usedPeople.clear();
+      if (availableProcess.length < counts.Process) usedProcess.clear();
+      if (availableBusiness.length < counts.Business) usedBusiness.clear();
+
+      const people = selectQuestions(questionBankPeople, counts.People, stats, usedPeople);
+      const process = selectQuestions(questionBankProcess, counts.Process, stats, usedProcess);
+      const business = selectQuestions(questionBankBusiness, counts.Business, stats, usedBusiness);
+
+      let instanceCounter = 1;
+      const combined = shuffle([...people, ...process, ...business]);
+      examQuestions = combined.map((question) => ({
+        ...question,
+        instanceId: instanceCounter++
+      }));
+      examLength = examQuestions.length;
+
+      const nextUsedPool = {
+        People: new Set(usedPeople),
+        Process: new Set(usedProcess),
+        Business: new Set(usedBusiness)
+      };
+      people.forEach((q) => nextUsedPool.People.add(q.id));
+      process.forEach((q) => nextUsedPool.Process.add(q.id));
+      business.forEach((q) => nextUsedPool.Business.add(q.id));
+
+      await saveUsedPool({
+        People: Array.from(nextUsedPool.People),
+        Process: Array.from(nextUsedPool.Process),
+        Business: Array.from(nextUsedPool.Business)
+      });
+    }
+
+      function getInstanceKey(question) {
+        return question.instanceId ?? question.id;
+      }
+
+      function formatTime(seconds) {
+        const min = Math.floor(seconds / 60);
+        const sec = seconds % 60;
+        const minStr = String(min).padStart(3, "0");
+        const secStr = String(sec).padStart(2, "0");
+        return `${minStr}:${secStr}`;
+      }
+
+      function startTimer() {
+        clearInterval(timerId);
+        timerId = setInterval(() => {
+          if (!isPaused) {
+            remainingSeconds -= 1;
+            if (remainingSeconds <= 0) {
+              remainingSeconds = 0;
+              updateTimer();
+              saveExamState();
+              endExam();
+            } else {
+              updateTimer();
+            }
+          }
+          const now = Date.now();
+          if (now - lastAutoSave > 10000) {
+            saveExamState();
+            lastAutoSave = now;
+          }
+        }, 1000);
+      }
+
+      function bindPersistenceHooks() {
+        window.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "hidden") {
+            saveExamState();
+          }
+        });
+        window.addEventListener("beforeunload", () => {
+          saveExamState();
+        });
+      }
+
+      function updateTimer() {
+        document.getElementById("timer").textContent = formatTime(remainingSeconds);
+      }
+
+      function recordTimeOnCurrent() {
+        if (isPaused || lastQuestionStart === null) return;
+        const now = Date.now();
+        const elapsedSec = Math.max(0, Math.round((now - lastQuestionStart) / 1000));
+        const question = examQuestions[currentIndex];
+        if (question) {
+          const key = getInstanceKey(question);
+          const prev = questionTimes.get(key) || 0;
+          questionTimes.set(key, prev + elapsedSec);
+        }
+        lastQuestionStart = now;
+      }
+
+      function setView(view) {
+        const header = document.querySelector("header");
+        const footer = document.querySelector("footer");
+        const landing = document.getElementById("landingView");
+        const exam = document.getElementById("examView");
+        const result = document.getElementById("resultView");
+        const history = document.getElementById("historyView");
+
+        landing.style.display = view === "landing" ? "block" : "none";
+        exam.style.display = view === "exam" ? "grid" : "none";
+        result.style.display = view === "result" ? "block" : "none";
+        history.style.display = view === "history" ? "block" : "none";
+
+        const showExamChrome = view === "exam";
+        const leftPart = header.querySelector(".left");
+        const markLabel = header.querySelector(".mark");
+        const pauseBtn = document.getElementById("pauseBtn");
+        const pauseStatus = document.getElementById("pauseStatus");
+
+        header.style.display = "flex";
+        footer.style.display = showExamChrome ? "grid" : "none";
+
+        if (showExamChrome) {
+          leftPart.style.display = "flex";
+          markLabel.style.display = "flex";
+          pauseBtn.style.display = "inline-flex";
+          updatePauseUI();
+        } else {
+          leftPart.style.display = "none";
+          markLabel.style.display = "none";
+          pauseBtn.style.display = "none";
+          pauseStatus.style.display = "none";
+        }
+
+        if (view === "landing") {
+          updateResumeButton();
+        }
+      }
+
+      async function updateResumeButton() {
+        const resumeBtn = document.getElementById("resumeExamBtn");
+        const status = document.getElementById("resumeStatus");
+        const state = await loadExamState();
+        if (state) {
+          resumeBtn.style.display = "inline-flex";
+          const savedAt = state.savedAt ? new Date(state.savedAt).toLocaleString() : "unknown time";
+          const remaining = typeof state.remainingSeconds === "number"
+            ? formatTime(state.remainingSeconds)
+            : "unknown";
+          status.textContent = `Unfinished exam found. Last saved: ${savedAt}. Time remaining: ${remaining}.`;
+        } else {
+          resumeBtn.style.display = "none";
+          status.textContent = "No unfinished exam found.";
+        }
+      }
+
+      function updatePauseUI() {
+        const status = document.getElementById("pauseStatus");
+        const btn = document.getElementById("pauseBtn");
+        if (isPaused) {
+          status.style.display = "inline-flex";
+          btn.textContent = "Resume";
+        } else {
+          status.style.display = "none";
+          btn.textContent = "Pause";
+        }
+      }
+
+      async function startExam() {
+        if (!(await loadQuestionBanks())) {
+          return;
+        }
+        currentRatios = getRatiosFromInputs();
+        await buildExam();
+        if (!examQuestions.length) {
+          alert("No questions available to start the exam.");
+          return;
+        }
+        if (examQuestions.length < EXAM_LENGTH) {
+          alert(`Only ${examQuestions.length} questions available. The exam will be shorter than ${EXAM_LENGTH}.`);
+        }
+        currentIndex = 0;
+        answers = new Map();
+        marked = new Set();
+        questionTimes = new Map();
+        remainingSeconds = EXAM_MINUTES * 60;
+        isPaused = false;
+        updatePauseUI();
+        updateTimer();
+        renderNavigator();
+        renderQuestion();
+        setView("exam");
+        lastQuestionStart = Date.now();
+        saveExamState();
+        startTimer();
+      }
+
+      async function resumeExam() {
+        if (!(await loadQuestionBanks())) {
+          return;
+        }
+        const state = await loadExamState();
+        if (!state) {
+          alert("No saved exam found.");
+          return;
+        }
+        examQuestions = state.examQuestions || [];
+        examLength = state.examLength || examQuestions.length;
+        currentIndex = state.currentIndex || 0;
+        answers = new Map(state.answers || []);
+        marked = new Set(state.marked || []);
+        questionTimes = new Map(state.questionTimes || []);
+        remainingSeconds = state.remainingSeconds || EXAM_MINUTES * 60;
+        currentRatios = state.currentRatios || { ...DEFAULT_RATIOS };
+        isPaused = !!state.isPaused;
+
+        updateTimer();
+        renderNavigator();
+        renderQuestion();
+        setView("exam");
+        updatePauseUI();
+        lastQuestionStart = isPaused ? null : Date.now();
+        startTimer();
+      }
+
+      function renderQuestion() {
+        const question = examQuestions[currentIndex];
+        if (!question) {
+          alert("Question data is missing. Returning to landing page.");
+          setView("landing");
+          return;
+        }
+        document.getElementById("questionProgress").textContent = `Question ${currentIndex + 1} of ${examLength}`;
+        document.getElementById("questionText").textContent = question.questionText;
+        document.getElementById("questionMeta").textContent = `${question.domain} Domain`;
+
+        const optionsEl = document.getElementById("options");
+        optionsEl.innerHTML = "";
+
+        if (question.type === "dragdrop" && question.dragdrop) {
+          renderDragDrop(question, optionsEl);
+        } else if (question.type === "multiselect" && question.multiselect) {
+          renderMultiSelect(question, optionsEl);
+        } else if (question.type === "hotspot" && question.hotspot) {
+          renderHotspot(question, optionsEl);
+        } else if (question.type === "fillin" && question.fillin) {
+          renderFillIn(question, optionsEl);
+        } else {
+          renderSingleChoice(question, optionsEl);
+        }
+
+        const markCheckbox = document.getElementById("markForReview");
+        markCheckbox.checked = marked.has(getInstanceKey(question));
+        markCheckbox.onchange = () => {
+          if (markCheckbox.checked) {
+            marked.add(getInstanceKey(question));
+          } else {
+            marked.delete(getInstanceKey(question));
+          }
+          saveExamState();
+          updateNavigator();
+        };
+
+        document.getElementById("prevBtn").disabled = currentIndex === 0;
+        document.getElementById("nextBtn").disabled = currentIndex === examLength - 1;
+
+        if (!isPaused) {
+          lastQuestionStart = Date.now();
+        }
+      }
+
+      function renderSingleChoice(question, optionsEl) {
+        question.options.forEach((option, index) => {
+          const label = document.createElement("label");
+          label.className = "option";
+
+          const input = document.createElement("input");
+          input.type = "radio";
+          input.name = "option";
+          input.value = index;
+          input.checked = answers.get(getInstanceKey(question)) === index;
+          input.addEventListener("change", () => {
+            answers.set(getInstanceKey(question), index);
+            saveExamState();
+            updateNavigator();
+          });
+
+          const text = document.createElement("div");
+          text.textContent = `${String.fromCharCode(65 + index)}. ${option}`;
+
+          label.appendChild(input);
+          label.appendChild(text);
+          optionsEl.appendChild(label);
+        });
+      }
+
+      function renderDragDrop(question, optionsEl) {
+        const { targets, choices } = question.dragdrop;
+        const current = answers.get(getInstanceKey(question)) || {};
+        const usedChoiceIndexes = new Set(Object.values(current));
+
+        const wrapper = document.createElement("div");
+        wrapper.className = "dragdrop-wrap";
+
+        const left = document.createElement("div");
+        left.className = "drag-column";
+        left.innerHTML = "<h4>Choices</h4>";
+        const choiceList = document.createElement("div");
+        choiceList.className = "drag-list";
+
+        choices.forEach((choice, index) => {
+          if (usedChoiceIndexes.has(index)) {
+            return;
+          }
+          const item = document.createElement("div");
+          item.className = "drag-item";
+          item.textContent = choice;
+          item.setAttribute("draggable", "true");
+          item.dataset.choiceIndex = index;
+          item.addEventListener("dragstart", () => {
+            item.classList.add("dragging");
+            item.dataset.dragging = "true";
+          });
+          item.addEventListener("dragend", () => {
+            item.classList.remove("dragging");
+            item.dataset.dragging = "false";
+          });
+          choiceList.appendChild(item);
+        });
+        left.appendChild(choiceList);
+
+        const right = document.createElement("div");
+        right.className = "drag-column";
+        right.innerHTML = "<h4>Targets</h4>";
+        const targetList = document.createElement("div");
+        targetList.className = "drop-list";
+
+        targets.forEach((target, targetIndex) => {
+          const slot = document.createElement("div");
+          slot.className = "drop-slot";
+          slot.dataset.targetIndex = targetIndex;
+
+          const label = document.createElement("div");
+          label.className = "drop-target";
+          label.textContent = target;
+
+          const value = document.createElement("div");
+          value.className = "drop-value";
+          if (current[targetIndex] !== undefined) {
+            value.textContent = choices[current[targetIndex]];
+            value.dataset.choiceIndex = current[targetIndex];
+          } else {
+            value.textContent = "Drop here";
+          }
+
+          slot.addEventListener("dragover", (event) => {
+            event.preventDefault();
+            slot.classList.add("over");
+          });
+          slot.addEventListener("dragleave", () => {
+            slot.classList.remove("over");
+          });
+          slot.addEventListener("drop", (event) => {
+            event.preventDefault();
+            slot.classList.remove("over");
+            const dragging = document.querySelector(".drag-item.dragging");
+            if (!dragging) return;
+            const choiceIndex = Number(dragging.dataset.choiceIndex);
+            const updated = { ...current };
+            updated[targetIndex] = choiceIndex;
+            answers.set(getInstanceKey(question), updated);
+            saveExamState();
+            renderQuestion();
+            updateNavigator();
+          });
+
+          slot.appendChild(label);
+          slot.appendChild(value);
+          targetList.appendChild(slot);
+        });
+        right.appendChild(targetList);
+
+        const actions = document.createElement("div");
+        actions.className = "drop-actions";
+        const reset = document.createElement("button");
+        reset.type = "button";
+        reset.textContent = "Reset Matches";
+        reset.addEventListener("click", () => {
+          answers.delete(getInstanceKey(question));
+          saveExamState();
+          renderQuestion();
+          updateNavigator();
+        });
+        actions.appendChild(reset);
+        right.appendChild(actions);
+
+        wrapper.appendChild(left);
+        wrapper.appendChild(right);
+        optionsEl.appendChild(wrapper);
+      }
+
+      function renderMultiSelect(question, optionsEl) {
+        const selected = new Set(answers.get(getInstanceKey(question)) || []);
+        const selectCount = question.multiselect.selectCount;
+        const note = document.createElement("div");
+        note.className = "select-note";
+        note.textContent = selectCount ? `Select ${selectCount}.` : "Select all that apply.";
+        optionsEl.appendChild(note);
+
+        function updateSelection(index, checked, checkbox) {
+          if (checked) {
+            selected.add(index);
+          } else {
+            selected.delete(index);
+          }
+
+          if (selectCount && selected.size > selectCount) {
+            selected.delete(index);
+            checkbox.checked = false;
+            return;
+          }
+
+          const selectedArray = Array.from(selected).sort((a, b) => a - b);
+          answers.set(getInstanceKey(question), selectedArray);
+          saveExamState();
+          updateNavigator();
+        }
+
+        question.options.forEach((option, index) => {
+          const label = document.createElement("label");
+          label.className = "option";
+
+          const input = document.createElement("input");
+          input.type = "checkbox";
+          input.name = "option";
+          input.value = index;
+          input.checked = selected.has(index);
+          input.addEventListener("change", () => updateSelection(index, input.checked, input));
+
+          const text = document.createElement("div");
+          text.textContent = `${String.fromCharCode(65 + index)}. ${option}`;
+
+          label.appendChild(input);
+          label.appendChild(text);
+          optionsEl.appendChild(label);
+        });
+      }
+
+      function renderHotspot(question, optionsEl) {
+        const current = answers.get(getInstanceKey(question));
+        const wrap = document.createElement("div");
+        wrap.className = "hotspot-wrap";
+
+        const introNote = document.createElement("div");
+        introNote.className = "select-note";
+        introNote.textContent = "Select one hotspot.";
+        wrap.appendChild(introNote);
+
+        const board = document.createElement("div");
+        board.className = "hotspot-board";
+
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute("viewBox", "0 0 560 320");
+        svg.setAttribute("role", "img");
+        svg.setAttribute("aria-label", question.hotspot.svgLabel || "Hotspot diagram");
+
+        const chart = {
+          x: 70,
+          y: 40,
+          w: 440,
+          h: 220
+        };
+
+        const title = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        title.setAttribute("x", "280");
+        title.setAttribute("y", "24");
+        title.setAttribute("text-anchor", "middle");
+        title.setAttribute("font-size", "14");
+        title.setAttribute("fill", "#5b6770");
+        title.textContent = question.hotspot.svgLabel || "Hotspot";
+        svg.appendChild(title);
+
+        const grid = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        grid.setAttribute("x", chart.x);
+        grid.setAttribute("y", chart.y);
+        grid.setAttribute("width", chart.w);
+        grid.setAttribute("height", chart.h);
+        grid.setAttribute("fill", "var(--graph-bg)");
+        grid.setAttribute("stroke", "var(--border)");
+        svg.appendChild(grid);
+
+        for (let i = 1; i < 5; i += 1) {
+          const vx = document.createElementNS("http://www.w3.org/2000/svg", "line");
+          vx.setAttribute("x1", chart.x + (chart.w / 5) * i);
+          vx.setAttribute("y1", chart.y);
+          vx.setAttribute("x2", chart.x + (chart.w / 5) * i);
+          vx.setAttribute("y2", chart.y + chart.h);
+          vx.setAttribute("stroke", "var(--graph-grid)");
+          svg.appendChild(vx);
+
+          const hy = document.createElementNS("http://www.w3.org/2000/svg", "line");
+          hy.setAttribute("x1", chart.x);
+          hy.setAttribute("y1", chart.y + (chart.h / 5) * i);
+          hy.setAttribute("x2", chart.x + chart.w);
+          hy.setAttribute("y2", chart.y + (chart.h / 5) * i);
+          hy.setAttribute("stroke", "var(--graph-grid)");
+          svg.appendChild(hy);
+        }
+
+        const xAxis = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        xAxis.setAttribute("x1", chart.x);
+        xAxis.setAttribute("y1", chart.y + chart.h);
+        xAxis.setAttribute("x2", chart.x + chart.w);
+        xAxis.setAttribute("y2", chart.y + chart.h);
+        xAxis.setAttribute("stroke", "var(--graph-axis)");
+        svg.appendChild(xAxis);
+
+        const yAxis = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        yAxis.setAttribute("x1", chart.x);
+        yAxis.setAttribute("y1", chart.y);
+        yAxis.setAttribute("x2", chart.x);
+        yAxis.setAttribute("y2", chart.y + chart.h);
+        yAxis.setAttribute("stroke", "var(--graph-axis)");
+        svg.appendChild(yAxis);
+
+        const xLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        xLabel.setAttribute("x", chart.x + chart.w / 2);
+        xLabel.setAttribute("y", chart.y + chart.h + 30);
+        xLabel.setAttribute("text-anchor", "middle");
+        xLabel.setAttribute("font-size", "12");
+        xLabel.setAttribute("fill", "var(--muted)");
+        xLabel.textContent = question.hotspot.xLabel || "X Axis";
+        svg.appendChild(xLabel);
+
+        const yLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        yLabel.setAttribute("x", chart.x - 30);
+        yLabel.setAttribute("y", chart.y + chart.h / 2);
+        yLabel.setAttribute("text-anchor", "middle");
+        yLabel.setAttribute("font-size", "12");
+        yLabel.setAttribute("fill", "var(--muted)");
+        yLabel.setAttribute("transform", `rotate(-90 ${chart.x - 30} ${chart.y + chart.h / 2})`);
+        yLabel.textContent = question.hotspot.yLabel || "Y Axis";
+        svg.appendChild(yLabel);
+
+        const xyRegions = question.hotspot.regions.filter(
+          (region) => typeof region.x === "number" && typeof region.y === "number"
+        );
+
+        if (xyRegions.length > 0) {
+          if (question.hotspot.connect) {
+            const points = xyRegions.map((region) => {
+              const cx = chart.x + (region.x / 100) * chart.w;
+              const cy = chart.y + chart.h - (region.y / 100) * chart.h;
+              return `${cx},${cy}`;
+            });
+            const polyline = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+            polyline.setAttribute("points", points.join(" "));
+            polyline.setAttribute("fill", "none");
+            polyline.setAttribute("stroke", "var(--graph-stroke)");
+            polyline.setAttribute("stroke-width", "2");
+            svg.appendChild(polyline);
+          }
+
+          xyRegions.forEach((region) => {
+            const cx = chart.x + (region.x / 100) * chart.w;
+            const cy = chart.y + chart.h - (region.y / 100) * chart.h;
+            const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            circle.setAttribute("cx", cx);
+            circle.setAttribute("cy", cy);
+            circle.setAttribute("r", "16");
+            circle.classList.add("hotspot-region");
+            if (current === region.id) {
+              circle.classList.add("selected");
+            }
+            circle.addEventListener("click", () => {
+              answers.set(getInstanceKey(question), region.id);
+              saveExamState();
+              renderQuestion();
+              updateNavigator();
+            });
+
+            const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            label.setAttribute("x", cx);
+            label.setAttribute("y", cy + 4);
+            label.setAttribute("text-anchor", "middle");
+            label.setAttribute("font-size", "11");
+            label.setAttribute("fill", "var(--text)");
+            label.textContent = region.label;
+
+            svg.appendChild(circle);
+            svg.appendChild(label);
+          });
+        } else {
+          question.hotspot.regions.forEach((region, index) => {
+            const fallback = [
+              { x: chart.x + 30, y: chart.y + 30, w: 170, h: 60 },
+              { x: chart.x + 240, y: chart.y + 30, w: 170, h: 60 },
+              { x: chart.x + 30, y: chart.y + 130, w: 170, h: 60 },
+              { x: chart.x + 240, y: chart.y + 130, w: 170, h: 60 }
+            ];
+            const box = fallback[index] || fallback[0];
+            const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+            rect.setAttribute("x", box.x);
+            rect.setAttribute("y", box.y);
+            rect.setAttribute("rx", "6");
+            rect.setAttribute("ry", "6");
+            rect.setAttribute("width", box.w);
+            rect.setAttribute("height", box.h);
+            rect.classList.add("hotspot-region");
+            if (current === region.id) {
+              rect.classList.add("selected");
+            }
+            rect.addEventListener("click", () => {
+              answers.set(getInstanceKey(question), region.id);
+              saveExamState();
+              renderQuestion();
+              updateNavigator();
+            });
+
+            const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            label.setAttribute("x", box.x + box.w / 2);
+            label.setAttribute("y", box.y + box.h / 2 + 5);
+            label.setAttribute("text-anchor", "middle");
+            label.setAttribute("font-size", "13");
+            label.setAttribute("fill", "var(--text)");
+            label.textContent = region.label;
+
+            svg.appendChild(rect);
+            svg.appendChild(label);
+          });
+        }
+
+        board.appendChild(svg);
+        wrap.appendChild(board);
+
+        const legend = document.createElement("div");
+        legend.className = "hotspot-legend";
+        legend.textContent = question.hotspot.legend || "Click the region on the chart that best answers the question.";
+        wrap.appendChild(legend);
+
+        optionsEl.appendChild(wrap);
+      }
+
+      function renderFillIn(question, optionsEl) {
+        const wrap = document.createElement("div");
+        wrap.className = "fillin-wrap";
+
+        const input = document.createElement("input");
+        input.type = "text";
+        input.className = "fillin-input";
+        input.placeholder = "Type your answer";
+        input.setAttribute("inputmode", "text");
+        input.setAttribute("autocomplete", "off");
+        input.setAttribute("autocorrect", "off");
+        input.setAttribute("autocapitalize", "off");
+        input.spellcheck = false;
+        input.value = answers.get(getInstanceKey(question)) || "";
+        input.addEventListener("input", () => {
+          answers.set(getInstanceKey(question), input.value);
+          saveExamState();
+          updateNavigator();
+        });
+
+        const hint = document.createElement("div");
+        hint.className = "fillin-hint";
+        hint.textContent = "Spelling variations within 1 character are accepted.";
+
+        wrap.appendChild(input);
+        wrap.appendChild(hint);
+        optionsEl.appendChild(wrap);
+      }
+
+      function renderNavigator() {
+        const nav = document.getElementById("navigator");
+        nav.innerHTML = "";
+
+        for (let i = 0; i < examLength; i += 1) {
+          const question = examQuestions[i];
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "nav-item";
+          btn.textContent = i + 1;
+          btn.onclick = () => {
+            recordTimeOnCurrent();
+            currentIndex = i;
+            renderQuestion();
+            saveExamState();
+            updateNavigator();
+          };
+          btn.dataset.id = getInstanceKey(question);
+          nav.appendChild(btn);
+        }
+        updateNavigator();
+      }
+
+      function updateNavigator() {
+        document.querySelectorAll(".nav-item").forEach((item, index) => {
+          const question = examQuestions[index];
+          item.classList.toggle("current", index === currentIndex);
+          item.classList.toggle("answered", isAnswered(question));
+          item.classList.toggle("marked", marked.has(getInstanceKey(question)));
+        });
+      }
+
+      function moveQuestion(delta) {
+        recordTimeOnCurrent();
+        currentIndex = Math.min(Math.max(currentIndex + delta, 0), examLength - 1);
+        renderQuestion();
+        saveExamState();
+        updateNavigator();
+      }
+
+      function calculateDomainPerformance() {
+        const domainTotals = {
+          People: { correct: 0, total: 0 },
+          Process: { correct: 0, total: 0 },
+          Business: { correct: 0, total: 0 }
+        };
+
+        examQuestions.forEach((question) => {
+          const domainBucket = domainTotals[question.domain];
+          if (!domainBucket) {
+            return;
+          }
+          domainBucket.total += 1;
+          if (isCorrect(question)) {
+            domainBucket.correct += 1;
+          }
+        });
+
+        return domainTotals;
+      }
+
+      function isAnswered(question) {
+        const value = answers.get(getInstanceKey(question));
+        if (question.type === "dragdrop" && question.dragdrop) {
+          if (!value) return false;
+          return question.dragdrop.targets.every((_, index) => value[index] !== undefined);
+        }
+        if (question.type === "multiselect" && question.multiselect) {
+          if (!value || value.length === 0) return false;
+          if (question.multiselect.selectCount) {
+            return value.length === question.multiselect.selectCount;
+          }
+          return true;
+        }
+        if (question.type === "hotspot" && question.hotspot) {
+          return value !== undefined && value !== null && value !== "";
+        }
+        if (question.type === "fillin" && question.fillin) {
+          return value !== undefined && value.trim() !== "";
+        }
+        return value !== undefined;
+      }
+
+      function isCorrect(question) {
+        const value = answers.get(getInstanceKey(question));
+        if (question.type === "dragdrop" && question.dragdrop) {
+          if (!value) return false;
+          return question.dragdrop.correctMatches.every(
+            (choiceIndex, targetIndex) => value[targetIndex] === choiceIndex
+          );
+        }
+        if (question.type === "multiselect" && question.multiselect) {
+          if (!value) return false;
+          const expected = question.multiselect.correctAnswers.slice().sort((a, b) => a - b);
+          if (value.length !== expected.length) return false;
+          return expected.every((answer, idx) => value[idx] === answer);
+        }
+        if (question.type === "hotspot" && question.hotspot) {
+          return value === question.hotspot.correctRegion;
+        }
+        if (question.type === "fillin" && question.fillin) {
+          if (!value || value.trim() === "") return false;
+          const normalized = normalizeFillIn(value);
+          const tolerance = Number.isFinite(question.fillin.tolerance) ? question.fillin.tolerance : 0;
+          return question.fillin.answers.some((answer) => {
+            const target = normalizeFillIn(answer);
+            return editDistance(normalized, target) <= tolerance;
+          });
+        }
+        return value === question.correctAnswer;
+      }
+
+      function normalizeFillIn(text) {
+        return String(text || "")
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, " ");
+      }
+
+      function editDistance(a, b) {
+        const aLen = a.length;
+        const bLen = b.length;
+        if (aLen === 0) return bLen;
+        if (bLen === 0) return aLen;
+
+        const matrix = Array.from({ length: aLen + 1 }, () => new Array(bLen + 1).fill(0));
+        for (let i = 0; i <= aLen; i += 1) matrix[i][0] = i;
+        for (let j = 0; j <= bLen; j += 1) matrix[0][j] = j;
+
+        for (let i = 1; i <= aLen; i += 1) {
+          for (let j = 1; j <= bLen; j += 1) {
+            const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+            matrix[i][j] = Math.min(
+              matrix[i - 1][j] + 1,
+              matrix[i][j - 1] + 1,
+              matrix[i - 1][j - 1] + cost
+            );
+          }
+        }
+        return matrix[aLen][bLen];
+      }
+
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/\"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function mapToRating(score) {
+        if (score >= 0.85) return "Above Target";
+        if (score >= 0.7) return "Target";
+        if (score >= 0.55) return "Below Target";
+        return "Needs Improvement";
+      }
+
+      function ratingClass(rating) {
+        if (rating === "Above Target") return "score-at";
+        if (rating === "Target") return "score-t";
+        if (rating === "Below Target") return "score-bt";
+        return "score-nt";
+      }
+
+      function formatAnswer(question, value) {
+        if (question.type === "dragdrop" && question.dragdrop) {
+          if (!value) return "No answer";
+          return question.dragdrop.targets
+            .map((target, idx) => {
+              const choiceIdx = value[idx];
+              const choice = choiceIdx !== undefined ? question.dragdrop.choices[choiceIdx] : "—";
+              return `${target} -> ${choice}`;
+            })
+            .join(" | ");
+        }
+        if (question.type === "multiselect" && question.multiselect) {
+          if (!value || value.length === 0) return "No answer";
+          return value.map((idx) => `${String.fromCharCode(65 + idx)}. ${question.options[idx]}`).join(" | ");
+        }
+        if (question.type === "hotspot" && question.hotspot) {
+          if (!value) return "No answer";
+          const region = question.hotspot.regions.find((r) => r.id === value);
+          return region ? region.label : "No answer";
+        }
+        if (question.type === "fillin" && question.fillin) {
+          if (!value || value.trim() === "") return "No answer";
+          return value;
+        }
+        if (value === undefined) return "No answer";
+        return `${String.fromCharCode(65 + value)}. ${question.options[value]}`;
+      }
+
+      function getCorrectAnswerText(question) {
+        if (question.type === "dragdrop" && question.dragdrop) {
+          return question.dragdrop.targets
+            .map((target, idx) => `${target} -> ${question.dragdrop.choices[question.dragdrop.correctMatches[idx]]}`)
+            .join(" | ");
+        }
+        if (question.type === "multiselect" && question.multiselect) {
+          return question.multiselect.correctAnswers
+            .map((idx) => `${String.fromCharCode(65 + idx)}. ${question.options[idx]}`)
+            .join(" | ");
+        }
+        if (question.type === "hotspot" && question.hotspot) {
+          const region = question.hotspot.regions.find((r) => r.id === question.hotspot.correctRegion);
+          return region ? region.label : "—";
+        }
+        if (question.type === "fillin" && question.fillin) {
+          return question.fillin.answers.join(" / ");
+        }
+        return `${String.fromCharCode(65 + question.correctAnswer)}. ${question.options[question.correctAnswer]}`;
+      }
+
+      function renderReviewList() {
+        const markedOnly = document.getElementById("reviewMarkedOnly")?.checked;
+        const unansweredOnly = document.getElementById("reviewUnansweredOnly")?.checked;
+        const list = document.getElementById("reviewList");
+        list.innerHTML = "";
+
+        examQuestions.forEach((question, index) => {
+          if (markedOnly && !marked.has(getInstanceKey(question))) {
+            return;
+          }
+          if (unansweredOnly && isAnswered(question)) {
+            return;
+          }
+          const item = document.createElement("div");
+          const correct = isCorrect(question);
+          item.className = `review-item ${correct ? "correct" : "incorrect"}`;
+
+          const heading = document.createElement("div");
+          const timeSpent = questionTimes.get(getInstanceKey(question)) || 0;
+          const headingStrong = document.createElement("strong");
+          headingStrong.textContent = `Question ${index + 1}`;
+          const headingDomain = document.createElement("span");
+          headingDomain.className = "label";
+          headingDomain.textContent = `(${question.domain})`;
+          const headingTime = document.createElement("span");
+          headingTime.className = "label";
+          headingTime.textContent = `Time: ${timeSpent}s`;
+          heading.appendChild(headingStrong);
+          heading.appendChild(document.createTextNode(" "));
+          heading.appendChild(headingDomain);
+          heading.appendChild(document.createTextNode(" "));
+          heading.appendChild(headingTime);
+
+          const text = document.createElement("div");
+          text.textContent = question.questionText;
+
+          const yourAnswer = document.createElement("div");
+          const yourLabel = document.createElement("span");
+          yourLabel.className = "label";
+          yourLabel.textContent = "Your Answer:";
+          const yourValue = document.createElement("span");
+          yourValue.className = "answer";
+          yourValue.textContent = formatAnswer(question, answers.get(getInstanceKey(question)));
+          yourAnswer.appendChild(yourLabel);
+          yourAnswer.appendChild(document.createTextNode(" "));
+          yourAnswer.appendChild(yourValue);
+
+          const correctAnswer = document.createElement("div");
+          const correctLabel = document.createElement("span");
+          correctLabel.className = "label";
+          correctLabel.textContent = "Correct Answer:";
+          const correctValue = document.createElement("span");
+          correctValue.className = "answer";
+          correctValue.textContent = getCorrectAnswerText(question);
+          correctAnswer.appendChild(correctLabel);
+          correctAnswer.appendChild(document.createTextNode(" "));
+          correctAnswer.appendChild(correctValue);
+
+          const explanation = document.createElement("div");
+          const explanationLabel = document.createElement("span");
+          explanationLabel.className = "label";
+          explanationLabel.textContent = "Explanation:";
+          const explanationValue = document.createElement("span");
+          explanationValue.textContent = question.explanation || "—";
+          explanation.appendChild(explanationLabel);
+          explanation.appendChild(document.createTextNode(" "));
+          explanation.appendChild(explanationValue);
+
+          item.appendChild(heading);
+          item.appendChild(text);
+          item.appendChild(yourAnswer);
+          item.appendChild(correctAnswer);
+          item.appendChild(explanation);
+
+          list.appendChild(item);
+        });
+      }
+
+      async function renderHistory() {
+        const historyList = document.getElementById("historyList");
+        const domainAnalytics = document.getElementById("domainAnalytics");
+        const questionAnalytics = document.getElementById("questionAnalytics");
+        const trendAnalytics = document.getElementById("trendAnalytics");
+        const fromInput = document.getElementById("historyFrom");
+        const toInput = document.getElementById("historyTo");
+        const results = await loadResults();
+        historyList.innerHTML = "";
+
+        const fromDate = fromInput.value ? new Date(fromInput.value + "T00:00:00") : null;
+        const toDate = toInput.value ? new Date(toInput.value + "T23:59:59") : null;
+        const filteredResults = results.filter((result) => {
+          const date = new Date(result.date);
+          if (fromDate && date < fromDate) return false;
+          if (toDate && date > toDate) return false;
+          return true;
+        });
+
+        if (!filteredResults.length) {
+          historyList.innerHTML = "<p class=\"meta\">No attempts recorded yet.</p>";
+          domainAnalytics.innerHTML = "<strong>Domain Trend</strong><div class=\"label\">No data yet.</div>";
+          questionAnalytics.innerHTML = "<strong>Toughest Questions</strong><div class=\"label\">No data yet.</div>";
+          trendAnalytics.innerHTML = "<strong>Domain Trend Chart</strong><div class=\"label\">No data yet.</div>";
+          return;
+        }
+
+        const domainTotals = {
+          People: { score: 0, count: 0 },
+          Process: { score: 0, count: 0 },
+          Business: { score: 0, count: 0 }
+        };
+        const questionTotals = {};
+
+        filteredResults.forEach((result) => {
+          Object.entries(result.domains || {}).forEach(([domain, stats]) => {
+            if (!domainTotals[domain]) return;
+            domainTotals[domain].score += stats.score || 0;
+            domainTotals[domain].count += 1;
+          });
+
+          (result.perQuestionCorrect || []).forEach((entry) => {
+            if (!questionTotals[entry.id]) {
+              questionTotals[entry.id] = {
+                id: entry.id,
+                domain: entry.domain,
+                text: entry.questionText,
+                correct: 0,
+                total: 0
+              };
+            }
+            questionTotals[entry.id].total += 1;
+            if (entry.correct) {
+              questionTotals[entry.id].correct += 1;
+            }
+          });
+        });
+
+        const domainAverages = Object.entries(domainTotals).map(([domain, stats]) => {
+          const avg = stats.count ? stats.score / stats.count : 0;
+          return { domain, avg };
+        });
+        domainAverages.sort((a, b) => a.avg - b.avg);
+        const weakest = domainAverages[0];
+
+        domainAnalytics.innerHTML = `
+          <strong>Domain Trend</strong>
+          <div class="label">Weakest: ${weakest.domain} (${Math.round(weakest.avg * 100)}% avg)</div>
+          <div class="analytics-list">
+            ${domainAverages
+              .map((item) => `<div class="label">${item.domain}: ${Math.round(item.avg * 100)}%</div>`)
+              .join("")}
+          </div>
+        `;
+
+        const toughest = Object.values(questionTotals)
+          .filter((q) => q.total > 0)
+          .map((q) => ({ ...q, accuracy: q.correct / q.total }))
+          .sort((a, b) => a.accuracy - b.accuracy)
+          .slice(0, 5);
+
+        questionAnalytics.innerHTML = `
+          <strong>Toughest Questions</strong>
+          <div class="label">${toughest.length ? "Lowest accuracy across attempts" : "No data yet."}</div>
+          <div class="analytics-list">
+            ${toughest
+              .map(
+                (q) =>
+                  `<div class="label">(${q.domain}) ${Math.round(q.accuracy * 100)}% - ${escapeHtml(q.text || "Question " + q.id)}</div>`
+              )
+              .join("")}
+          </div>
+        `;
+
+        renderTrendChart(filteredResults, trendAnalytics);
+
+        filteredResults
+          .slice()
+          .reverse()
+          .forEach((result) => {
+            const container = document.createElement("div");
+            container.className = "domain-card";
+
+            const date = new Date(result.date);
+            const header = document.createElement("div");
+            header.innerHTML = `<strong>${date.toLocaleString()}</strong> — ${result.overall.rating} (${Math.round(result.overall.weightedScore * 100)}%)`;
+            container.appendChild(header);
+
+            const ratio = document.createElement("div");
+            ratio.className = "label";
+            ratio.textContent = `Ratios: People ${result.ratios.People}%, Process ${result.ratios.Process}%, Business ${result.ratios.Business}%`;
+            container.appendChild(ratio);
+
+            const domainWrap = document.createElement("div");
+            domainWrap.className = "domain-grid";
+            Object.entries(result.domains).forEach(([domain, stats]) => {
+              const card = document.createElement("div");
+              card.className = "domain-card";
+              card.innerHTML = `
+                <div class="label">${domain}</div>
+                <div><strong>${Math.round(stats.score * 100)}%</strong> <span class="score-badge ${ratingClass(stats.rating)}">${stats.rating}</span></div>
+                <div class="label">${stats.correct} of ${stats.total} correct</div>
+              `;
+              domainWrap.appendChild(card);
+            });
+            container.appendChild(domainWrap);
+
+            const summary = document.createElement("div");
+            summary.className = "label";
+            const avgTime = result.overall.avgTimeSeconds ?? 0;
+            summary.textContent = `Answered ${result.overall.answered} of ${result.overall.total}. Avg time: ${avgTime}s per question.`;
+            container.appendChild(summary);
+
+            historyList.appendChild(container);
+          });
+      }
+
+      function renderTrendChart(results, container) {
+        const domains = ["People", "Process", "Business"];
+        const series = domains.map((domain) =>
+          results.map((result) => {
+            const stats = result.domains?.[domain];
+            return stats ? stats.score : 0;
+          })
+        );
+        const maxPoints = Math.max(...series.map((s) => s.length));
+        if (!maxPoints) {
+          container.innerHTML = "<strong>Domain Trend Chart</strong><div class=\"label\">No data yet.</div>";
+          return;
+        }
+
+        const width = 280;
+        const height = 100;
+        const padding = 10;
+        const colors = {
+          People: "#0b76c4",
+          Process: "#1f2a33",
+          Business: "#7a8a99"
+        };
+
+        function buildPath(values) {
+          if (!values.length) return "";
+          return values
+            .map((value, index) => {
+              const x = padding + (index / Math.max(1, values.length - 1)) * (width - padding * 2);
+              const y = padding + (1 - value) * (height - padding * 2);
+              return `${index === 0 ? "M" : "L"}${x},${y}`;
+            })
+            .join(" ");
+        }
+
+        const lines = domains
+          .map((domain, idx) => {
+            const path = buildPath(series[idx]);
+            return `<path d="${path}" fill="none" stroke="${colors[domain]}" stroke-width="2" />`;
+          })
+          .join("");
+
+        container.innerHTML = `
+          <strong>Domain Trend Chart</strong>
+          <div class="label">Each point is an exam attempt (filtered).</div>
+          <div class="trend-chart">
+            <svg viewBox="0 0 ${width} ${height}" aria-label="Domain trend chart">
+              <rect x="0" y="0" width="${width}" height="${height}" fill="var(--chart-bg)" />
+              ${lines}
+            </svg>
+            <div class="analytics-list">
+              ${domains
+                .map((domain) => `<div class="label">${domain}: ${colors[domain]}</div>`)
+                .join("")}
+            </div>
+          </div>
+        `;
+      }
+
+      async function endExam() {
+        clearInterval(timerId);
+        recordTimeOnCurrent();
+        setView("result");
+
+        const domainTotals = calculateDomainPerformance();
+        const domainGrid = document.getElementById("domainGrid");
+        domainGrid.innerHTML = "";
+
+        let weightedScore = 0;
+        const domainResults = {};
+        Object.entries(domainTotals).forEach(([domain, stats]) => {
+          const score = stats.total === 0 ? 0 : stats.correct / stats.total;
+          weightedScore += score * domainWeights[domain];
+          const rating = mapToRating(score);
+          domainResults[domain] = {
+            correct: stats.correct,
+            total: stats.total,
+            score,
+            rating
+          };
+
+          const card = document.createElement("div");
+          card.className = "domain-card";
+          card.innerHTML = `
+            <div class="label">${domain} (${Math.round(domainWeights[domain] * 100)}%)</div>
+            <div><strong>${Math.round(score * 100)}%</strong> <span class="score-badge ${ratingClass(rating)}">${rating}</span></div>
+            <div class="label">${stats.correct} of ${stats.total} correct</div>
+          `;
+          domainGrid.appendChild(card);
+        });
+
+        const overall = mapToRating(weightedScore);
+        document.getElementById("scoreSummary").innerHTML = `Overall Performance: <span class="score-badge ${ratingClass(overall)}">${overall}</span> (Weighted Score ${Math.round(weightedScore * 100)}%)`;
+        const answeredCount = examQuestions.filter(isAnswered).length;
+        const totalTime = Array.from(questionTimes.values()).reduce((sum, value) => sum + value, 0);
+        const avgTime = examLength ? Math.round(totalTime / examLength) : 0;
+        document.getElementById("reviewSummary").textContent = `Answered ${answeredCount} of ${examLength}. Marked for review: ${marked.size}. Avg time: ${avgTime}s per question.`;
+        renderReviewList();
+
+        const stats = await getQuestionStats();
+        examQuestions.forEach((question) => {
+          if (isAnswered(question)) {
+            stats[question.id] = (stats[question.id] || 0) + 1;
+          }
+        });
+        await saveQuestionStats(stats);
+        const { People, Process, Business } = currentRatios;
+        const perQuestionCorrect = examQuestions.map((question) => ({
+          id: question.id,
+          domain: question.domain,
+          correct: isCorrect(question),
+          questionText: question.questionText
+        }));
+        const resultPayload = {
+          id: Date.now(),
+          date: new Date().toISOString(),
+          ratios: { People, Process, Business },
+          overall: {
+            rating: overall,
+            weightedScore,
+            answered: answeredCount,
+            total: examLength,
+            totalTimeSeconds: totalTime,
+            avgTimeSeconds: avgTime
+          },
+          domains: domainResults,
+          timeByQuestion: Array.from(questionTimes.entries()),
+          perQuestionCorrect
+        };
+        await saveResult(resultPayload);
+        await clearExamState();
+      }
+
+      document.getElementById("prevBtn").addEventListener("click", () => moveQuestion(-1));
+      document.getElementById("nextBtn").addEventListener("click", () => moveQuestion(1));
+      function getUnansweredCount() {
+        return examQuestions.filter((question) => !isAnswered(question)).length;
+      }
+
+      document.getElementById("endReviewBtn").addEventListener("click", () => {
+        const unansweredCount = getUnansweredCount();
+        const message = unansweredCount > 0
+          ? `You still have ${unansweredCount} unanswered question(s). End review and submit anyway?`
+          : "End review and submit the exam?";
+        if (confirm(message)) {
+          endExam();
+        }
+      });
+      document.getElementById("startExamBtn").addEventListener("click", () => startExam());
+      document.getElementById("resumeExamBtn").addEventListener("click", () => resumeExam());
+      document.getElementById("viewHistoryBtn").addEventListener("click", () => {
+        renderHistory();
+        setView("history");
+      });
+      document.getElementById("resetLayoutBtn").addEventListener("click", () => {
+        resetSplitLayout();
+      });
+      document.getElementById("factoryResetBtn").addEventListener("click", () => {
+        factoryReset();
+      });
+      document.getElementById("loadSummaryBtn").addEventListener("click", async () => {
+        if (!(await loadQuestionBanks())) {
+          return;
+        }
+        renderBankSummary();
+      });
+      document.getElementById("openHistoryBtn").addEventListener("click", () => {
+        renderHistory();
+        setView("history");
+      });
+      document.getElementById("backToLandingBtn").addEventListener("click", () => setView("landing"));
+      document.getElementById("backFromHistoryBtn").addEventListener("click", () => setView("landing"));
+      document.getElementById("reviewMarkedOnly").addEventListener("change", () => renderReviewList());
+      document.getElementById("reviewUnansweredOnly").addEventListener("change", () => renderReviewList());
+      document.getElementById("pauseBtn").addEventListener("click", () => {
+        recordTimeOnCurrent();
+        isPaused = !isPaused;
+        lastQuestionStart = isPaused ? null : Date.now();
+        updatePauseUI();
+        saveExamState();
+      });
+      document.getElementById("applyHistoryFilter").addEventListener("click", () => renderHistory());
+      document.getElementById("clearHistoryFilter").addEventListener("click", () => {
+        document.getElementById("historyFrom").value = "";
+        document.getElementById("historyTo").value = "";
+        renderHistory();
+      });
+      document.getElementById("clearHistoryData").addEventListener("click", async () => {
+        if (confirm("Clear all stored results?")) {
+          await clearResults();
+          renderHistory();
+        }
+      });
+
+      document.getElementById("openNavigatorBtn").addEventListener("click", () => {
+        document.body.classList.toggle("nav-open");
+      });
+      document.getElementById("navOverlay").addEventListener("click", () => {
+        document.body.classList.remove("nav-open");
+      });
+
+      (async () => {
+        localStorage.removeItem("pmp_results");
+        localStorage.removeItem("pmp_question_stats");
+        localStorage.removeItem("pmp_exam_state");
+        await openDatabase();
+        const role = requirePasscode();
+        applyRoleUI(role);
+        document.body.classList.remove("auth-pending");
+        await updateResumeButton();
+        bindPersistenceHooks();
+        initSplitLayout();
+        initCollapsibles();
+        setView("landing");
+      })();
+    </script>
+  </body>
+</html>
