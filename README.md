@@ -1,5 +1,7 @@
 # Mock Exam Simulator (Astro)
 
+A domain-balanced mock exam simulator with timed exams, persistent progress, analytics, and mobile-friendly UI.
+
 ## Quick start
 
 ```bash
@@ -30,16 +32,47 @@ Question banks are loaded from static JSON files in `public/data`:
 
 ## Append grouped questions
 
-To append grouped JSON (the format you shared) into the three domain files:
+To append grouped JSON (the format with `group` + `questions`) into the three domain files:
 
 ```bash
-python3 scripts/append_questions.py path/to/grouped.json
+python3 public/data/append_questions.py path/to/grouped.json
 ```
 
-The script validates domains, skips duplicate `id`s, and appends new questions.
+The script:
+- Validates domains and required fields
+- De-dupes by `questionText`
+- Auto-reassigns IDs if a text is new but the ID already exists
+- Prints summary counts per domain and group
 
-## Access codes
+### Input-only summary
 
-The app prompts for a PIN:
-- Admin PIN: `M271-1983-AX1Z`
-- User PIN: `N271-1983-AX2Z`
+```bash
+python3 public/data/append_questions.py --summary-input path/to/grouped.json
+```
+
+### Duplicate report (by question text)
+
+```bash
+python3 public/data/append_questions.py --report-duplicates path/to/grouped.json
+```
+
+### Bank summary (no arguments)
+
+```bash
+python3 public/data/append_questions.py
+```
+
+## Features
+
+- Domain-balanced exam generation with adjustable ratios
+- Strict non-repetition across exams until a domain is exhausted
+- Multiple question types: single, multiselect, drag-drop, hotspot, fill-in
+- Timer with pause/resume
+- Autosave and resume
+- Results breakdown by domain + review list
+- History analytics with filters
+- Mobile layout: stacked question/answers, bottom action bar, navigator drawer
+- Resizable panels on desktop (left/right) and mobile (up/down), persisted in localStorage
+- Factory reset and layout reset
+- Theme switcher (system/light/dark)
+
