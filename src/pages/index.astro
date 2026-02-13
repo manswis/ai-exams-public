@@ -120,15 +120,38 @@ const basePath = import.meta.env.BASE_URL ?? "/";
         color: var(--blue);
       }
 
-      .pause-status {
-        font-size: 12px;
-        font-weight: 700;
-        color: var(--status-warn-color);
-        background: var(--status-warn-bg);
-        border: 1px solid var(--status-warn-border);
-        padding: 4px 8px;
-        border-radius: 4px;
-      }
+    .pause-status {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--status-warn-color);
+      background: var(--status-warn-bg);
+      border: 1px solid var(--status-warn-border);
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+
+    .autosave-toast {
+      position: fixed;
+      right: 16px;
+      bottom: 100px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 600;
+      opacity: 0;
+      transform: translateY(6px);
+      transition: opacity 160ms ease, transform 160ms ease;
+      z-index: 1200;
+      pointer-events: none;
+    }
+
+    .autosave-toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
 
     main {
       flex: 1;
@@ -982,8 +1005,9 @@ const basePath = import.meta.env.BASE_URL ?? "/";
         <div class="navigator" id="navigator"></div>
       </div>
   </footer>
-  <div id="navOverlay" aria-hidden="true"></div>
-    </div>
+    <div id="navOverlay" aria-hidden="true"></div>
+    <div class="autosave-toast" id="autosaveToast">Saved</div>
+  </div>
 
     <script is:inline define:vars={{ basePath }}>
       document.body.classList.add("auth-pending");
@@ -1219,6 +1243,7 @@ const basePath = import.meta.env.BASE_URL ?? "/";
       let questionsLoaded = false;
       let isPaused = false;
       let lastAutoSave = 0;
+      let autosaveToastTimer = null;
       let questionTimes = new Map();
       let lastQuestionStart = null;
       let dbPromise = null;
@@ -1630,6 +1655,7 @@ const basePath = import.meta.env.BASE_URL ?? "/";
           if (now - lastAutoSave > 10000) {
             saveExamState();
             lastAutoSave = now;
+            showAutosaveToast();
           }
         }, 1000);
       }
@@ -1728,6 +1754,18 @@ const basePath = import.meta.env.BASE_URL ?? "/";
           status.style.display = "none";
           btn.textContent = "Pause";
         }
+      }
+
+      function showAutosaveToast() {
+        const toast = document.getElementById("autosaveToast");
+        if (!toast) return;
+        toast.classList.add("show");
+        if (autosaveToastTimer) {
+          clearTimeout(autosaveToastTimer);
+        }
+        autosaveToastTimer = setTimeout(() => {
+          toast.classList.remove("show");
+        }, 1200);
       }
 
       async function startExam() {
